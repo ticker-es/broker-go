@@ -55,15 +55,7 @@ func (s *EventStream) Get(sequence int64) (*es.Event, error) {
 }
 
 func (s *EventStream) Stream(ctx context.Context, sel es.Selector, bracket es.Bracket, handler es.EventHandler) error {
-	if bracket.NextSequence < 1 {
-		bracket.NextSequence = 1
-	}
-	if bracket.LastSequence <= 0 {
-		bracket.LastSequence = s.LastSequence()
-	}
-	if bracket.LastSequence > s.LastSequence() {
-		bracket.LastSequence = s.LastSequence()
-	}
+	bracket.Sanitize(s.LastSequence())
 	for _, event := range s.events[bracket.NextSequence-1 : bracket.LastSequence] {
 		if err := ctx.Err(); errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return nil
