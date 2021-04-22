@@ -14,13 +14,16 @@ var (
 	commit  = "none"
 	app     = NewCommandline("ticker-broker",
 		Short("Ticker Broker"),
+		FlagLogLevel("warn"),
+		FlagLogFormat(),
+		FlagLogFile(),
 		SubCommand("server",
 			Short("Run the ticker server"),
 			Flag("listen", Str(":6677"), Description("Address to listen for grpc connections"), Mandatory(), Persistent(), Env()),
 			Flag("database", Str("localhost:5432"), Description("Database server to connect to"), Mandatory(), Persistent(), Env()),
+			Flag("insecure", Bool(), Description("Run in insecure mode. Not recommended in production"), Persistent(), Env()),
 			Run(executeServer),
 		),
-
 		Version(version, commit),
 		Completion(),
 	).GenerateCobra()
@@ -28,7 +31,6 @@ var (
 
 func init() {
 	EnvironmentConfig("TICKER")
-	ApplyLogFlags(app)
 	logging.ConfigureDefaultLogging()
 }
 
