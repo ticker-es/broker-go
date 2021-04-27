@@ -1,8 +1,10 @@
 package main
 
 import (
+	"os"
+
 	. "github.com/mtrense/soil/config"
-	"github.com/mtrense/soil/logging"
+	log "github.com/mtrense/soil/logging"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/ticker-es/broker-go/eventstore/memory"
@@ -31,7 +33,7 @@ var (
 
 func init() {
 	EnvironmentConfig("TICKER")
-	logging.ConfigureDefaultLogging()
+	log.ConfigureDefaultLogging()
 }
 
 func main() {
@@ -44,6 +46,7 @@ func executeServer(cmd *cobra.Command, args []string) {
 	listen := viper.GetString("listen")
 	stream := memory.NewMemoryEventStream(memory.NewMemorySequenceStore())
 	srv := server.NewServer(listen, version, stream)
+	log.L().Info().Str("listenAddr", listen).Int("pid", os.Getpid()).Msg("Server starting")
 	if err := srv.Start(); err != nil {
 		panic(err)
 	}
