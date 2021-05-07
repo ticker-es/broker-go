@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 
 	"github.com/golang/protobuf/ptypes"
 
@@ -43,15 +44,20 @@ func (s *eventStreamServer) Stream(req *rpc.StreamRequest, stream rpc.EventStrea
 		NextSequence: req.Bracket.FirstSequence,
 		LastSequence: req.Bracket.LastSequence,
 	}
-	s.server.streamBackend.Stream(stream.Context(), selector, bracket, func(e *es.Event) error {
+	return s.server.streamBackend.Stream(stream.Context(), selector, bracket, func(e *es.Event) error {
 		ev := rpc.EventToProto(e)
 		return stream.Send(ev)
 	})
-	return nil
 }
 
 func (s *eventStreamServer) Subscribe(req *rpc.SubscriptionRequest, stream rpc.EventStream_SubscribeServer) error {
+	if req == nil {
+		return nil
+	}
 	persistentClientID := req.PersistentClientId
+	if req.Selector == nil {
+		return errors.New("called with nil selector")
+	}
 	selector := es.Selector{
 		Aggregate: req.Selector.Aggregate,
 		Type:      req.Selector.Type,
