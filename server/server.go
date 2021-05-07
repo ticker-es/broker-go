@@ -75,6 +75,28 @@ func (s *Server) TagRPC(ctx context.Context, i *stats.RPCTagInfo) context.Contex
 }
 
 func (s *Server) HandleRPC(ctx context.Context, st stats.RPCStats) {
+	l := logging.L().Info()
+	if p, ok := peer.FromContext(ctx); ok {
+		l.Str("clientAddr", p.Addr.String())
+		switch p.AuthInfo.(type) {
+		case credentials.TLSInfo:
+		default:
+			l.Bool("authenticated", false)
+		}
+	}
+	switch s := st.(type) {
+	case *stats.Begin:
+		l.Msg("RPC Call started")
+	case *stats.InHeader:
+		l.Str("method", s.FullMethod).Msg("RPC Call executing")
+	case *stats.InPayload:
+	case *stats.InTrailer:
+	case *stats.OutHeader:
+	case *stats.OutPayload:
+	case *stats.OutTrailer:
+	case *stats.End:
+		l.Msg("RPC Call ended")
+	}
 }
 
 func (s *Server) TagConn(ctx context.Context, i *stats.ConnTagInfo) context.Context {
@@ -85,6 +107,11 @@ func (s *Server) HandleConn(ctx context.Context, st stats.ConnStats) {
 	l := logging.L().Info()
 	if p, ok := peer.FromContext(ctx); ok {
 		l.Str("clientAddr", p.Addr.String())
+		switch p.AuthInfo.(type) {
+		case credentials.TLSInfo:
+		default:
+			l.Bool("authenticated", false)
+		}
 	}
 	switch st.(type) {
 	case *stats.ConnBegin:
