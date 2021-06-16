@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"google.golang.org/grpc/credentials"
+
 	"github.com/ticker-es/client-go/eventstream/base"
 
 	"google.golang.org/grpc/stats"
@@ -23,6 +25,7 @@ import (
 
 type Server struct {
 	listen            string
+	credentials       credentials.TransportCredentials
 	version           string
 	streamBackend     base.EventStream
 	streamServer      *eventStreamServer
@@ -31,9 +34,10 @@ type Server struct {
 	startTime         time.Time
 }
 
-func NewServer(listen string, version string, backend base.EventStream) *Server {
+func NewServer(listen string, version string, backend base.EventStream, cred credentials.TransportCredentials) *Server {
 	srv := &Server{
 		listen:        listen,
+		credentials:   cred,
 		version:       version,
 		streamBackend: backend,
 	}
@@ -54,7 +58,12 @@ func (s *Server) Start() error {
 	if err != nil {
 		return err
 	}
-	srv := grpc.NewServer(grpc.StatsHandler(s))
+	srv := grpc.NewServer(
+		grpc.StatsHandler(s),
+		grpc.Creds(s.credentials),
+		//grpc.UnaryInterceptor(s.unaryInterceptor),
+		//grpc.StreamInterceptor(s.streamServerInterceptor),
+	)
 	go func() {
 		sig := <-signals
 		switch sig {
