@@ -26,6 +26,7 @@ import (
 
 type Server struct {
 	listen            string
+	grpcServerOptions []grpc.ServerOption
 	credentials       credentials.TransportCredentials
 	version           string
 	streamBackend     base.EventStream
@@ -35,12 +36,16 @@ type Server struct {
 	startTime         time.Time
 }
 
-func NewServer(listen string, version string, backend base.EventStream, cred credentials.TransportCredentials) *Server {
+type Option = func(s *Server)
+
+func NewServer(version string, backend base.EventStream, cred credentials.TransportCredentials, opts ...Option) *Server {
 	srv := &Server{
-		listen:        listen,
 		credentials:   cred,
 		version:       version,
 		streamBackend: backend,
+	}
+	for _, opt := range opts {
+		opt(srv)
 	}
 	srv.streamServer = &eventStreamServer{
 		server: srv,

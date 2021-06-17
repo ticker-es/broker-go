@@ -55,10 +55,11 @@ func executeServer(cmd *cobra.Command, args []string) {
 	listen := viper.GetString("listen")
 	stream := memory.NewMemoryEventStream(memory.NewMemorySequenceStore())
 	tlsConfig := &tls.Config{
+		ClientAuth:   tls.RequireAndVerifyClientCert,
 		ClientCAs:    readCACerts(viper.GetString("client_ca")),
 		Certificates: readServerCert(),
 	}
-	srv := server.NewServer(listen, version, stream, credentials.NewTLS(tlsConfig))
+	srv := server.NewServer(version, stream, credentials.NewTLS(tlsConfig), server.ListenAddress(listen))
 	log.L().Info().Str("listen-addr", listen).Int("pid", os.Getpid()).Msg("Server starting")
 	if err := srv.Start(); err != nil {
 		panic(err)
