@@ -86,15 +86,18 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) TagRPC(ctx context.Context, i *stats.RPCTagInfo) context.Context {
+
 	return ctx
 }
 
 func (s *Server) HandleRPC(ctx context.Context, st stats.RPCStats) {
-	l := logging.L().Info()
+	l := logging.L().Debug()
 	if p, ok := peer.FromContext(ctx); ok {
 		l.Str("clientAddr", p.Addr.String())
-		switch p.AuthInfo.(type) {
+		switch ai := p.AuthInfo.(type) {
 		case credentials.TLSInfo:
+			l.Bool("authenticated", true)
+			l.Str("subject", ai.State.PeerCertificates[0].Subject.CommonName)
 		default:
 			l.Bool("authenticated", false)
 		}
@@ -122,11 +125,15 @@ func (s *Server) HandleConn(ctx context.Context, st stats.ConnStats) {
 	l := logging.L().Info()
 	if p, ok := peer.FromContext(ctx); ok {
 		l.Str("clientAddr", p.Addr.String())
-		switch p.AuthInfo.(type) {
+		switch ai := p.AuthInfo.(type) {
 		case credentials.TLSInfo:
+			l.Bool("authenticated", true)
+			l.Str("subject", ai.State.PeerCertificates[0].Subject.CommonName)
 		default:
 			l.Bool("authenticated", false)
 		}
+	} else {
+		logging.L().Warn().Msg("Could not get peer info")
 	}
 	switch st.(type) {
 	case *stats.ConnBegin:

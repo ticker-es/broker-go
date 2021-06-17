@@ -3,6 +3,7 @@ module github.com/ticker-es/broker-go
 go 1.16
 
 require (
+	github.com/davecgh/go-spew v1.1.1
 	github.com/golang/protobuf v1.5.2
 	github.com/mtrense/soil v0.4.0
 	github.com/onsi/ginkgo v1.16.0
