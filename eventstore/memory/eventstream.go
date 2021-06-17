@@ -31,7 +31,7 @@ func NewMemoryEventStream(sequenceStore es.SequenceStore, opts ...Option) *Event
 	return s
 }
 
-func (s *EventStream) Store(event *es.Event) (int64, error) {
+func (s *EventStream) Emit(event *es.Event) (int64, error) {
 	s.writeLock.Lock()
 	defer s.writeLock.Unlock()
 	// Sequence starts at 1
