@@ -120,18 +120,6 @@ func (s *Server) TagConn(ctx context.Context, i *stats.ConnTagInfo) context.Cont
 
 func (s *Server) HandleConn(ctx context.Context, st stats.ConnStats) {
 	l := logging.L().Info()
-	if p, ok := peer.FromContext(ctx); ok {
-		l.Str("clientAddr", p.Addr.String())
-		switch ai := p.AuthInfo.(type) {
-		case credentials.TLSInfo:
-			l.Bool("authenticated", true)
-			l.Str("subject", ai.State.PeerCertificates[0].Subject.CommonName)
-		default:
-			l.Bool("authenticated", false)
-		}
-	} else {
-		logging.L().Warn().Msg("Could not get peer info")
-	}
 	switch st.(type) {
 	case *stats.ConnBegin:
 		atomic.AddInt32(&s.connectionCount, 1)
