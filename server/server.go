@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"google.golang.org/grpc/credentials"
@@ -53,7 +54,7 @@ func NewServer(listen string, version string, backend base.EventStream, cred cre
 func (s *Server) Start() error {
 	s.startTime = time.Now()
 	signals := make(chan os.Signal)
-	signal.Notify(signals, os.Interrupt, os.Kill)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, os.Kill)
 	listener, err := net.Listen("tcp", ":6677")
 	if err != nil {
 		return err
@@ -69,7 +70,7 @@ func (s *Server) Start() error {
 		switch sig {
 		case os.Kill:
 			srv.Stop()
-		case os.Interrupt:
+		case os.Interrupt, syscall.SIGTERM:
 			srv.GracefulStop()
 		}
 	}()
