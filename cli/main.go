@@ -6,8 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	"google.golang.org/grpc/credentials"
-
 	. "github.com/mtrense/soil/config"
 	"github.com/mtrense/soil/logging"
 	log "github.com/mtrense/soil/logging"
@@ -54,21 +52,24 @@ func main() {
 func executeServer(cmd *cobra.Command, args []string) {
 	listen := viper.GetString("listen")
 	stream := memory.NewMemoryEventStream(memory.NewMemorySequenceStore())
-	tlsConfig := &tls.Config{
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ClientCAs:    readCACerts(viper.GetString("client_ca")),
-		Certificates: readServerCert(),
+	cert, err := readServerCert()
+	if err != nil {
+		panic(err)
 	}
-	srv := server.NewServer(version, stream, credentials.NewTLS(tlsConfig), server.ListenAddress(listen))
+	srv := server.NewServer(version, stream,
+		server.ListenAddress(listen),
+		//server.Credentials(credentials.NewTLS(tlsConfig)),
+		server.MutualTLS(cert, readCACerts()),
+	)
 	log.L().Info().Str("listen-addr", listen).Int("pid", os.Getpid()).Msg("Server starting")
 	if err := srv.Start(); err != nil {
 		panic(err)
 	}
 }
 
-func readCACerts(caCertFiles ...string) *x509.CertPool {
+func readCACerts() *x509.CertPool {
 	caCerts := x509.NewCertPool()
-	for _, caCertFile := range caCertFiles {
+	for _, caCertFile := range viper.GetStringSlice("client_ca") {
 		if caCertData, err := ioutil.ReadFile(caCertFile); err == nil {
 			if !caCerts.AppendCertsFromPEM(caCertData) {
 				logging.L().Error().Str("filename", caCertFile).Msg("Could not parse CA Certificate from PEM")
@@ -80,12 +81,6 @@ func readCACerts(caCertFiles ...string) *x509.CertPool {
 	return caCerts
 }
 
-func readServerCert() []tls.Certificate {
-	var certificates []tls.Certificate
-	if cert, err := tls.LoadX509KeyPair(viper.GetString("tls_cert"), viper.GetString("tls_key")); err == nil {
-		certificates = append(certificates, cert)
-	} else {
-		logging.L().Err(err).Msg("Could not read server certificate/key")
-	}
-	return certificates
+func readServerCert() (tls.Certificate, error) {
+	return tls.LoadX509KeyPair(viper.GetString("tls_cert"), viper.GetString("tls_key"))
 }

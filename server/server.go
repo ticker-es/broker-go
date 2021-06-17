@@ -27,7 +27,6 @@ import (
 type Server struct {
 	listen            string
 	grpcServerOptions []grpc.ServerOption
-	credentials       credentials.TransportCredentials
 	version           string
 	streamBackend     base.EventStream
 	streamServer      *eventStreamServer
@@ -38,9 +37,8 @@ type Server struct {
 
 type Option = func(s *Server)
 
-func NewServer(version string, backend base.EventStream, cred credentials.TransportCredentials, opts ...Option) *Server {
+func NewServer(version string, backend base.EventStream, opts ...Option) *Server {
 	srv := &Server{
-		credentials:   cred,
 		version:       version,
 		streamBackend: backend,
 	}
@@ -64,12 +62,11 @@ func (s *Server) Start() error {
 	if err != nil {
 		return err
 	}
-	srv := grpc.NewServer(
+	serverOpts := []grpc.ServerOption{
 		grpc.StatsHandler(s),
-		grpc.Creds(s.credentials),
-		//grpc.UnaryInterceptor(s.unaryInterceptor),
-		//grpc.StreamInterceptor(s.streamServerInterceptor),
-	)
+	}
+	serverOpts = append(serverOpts, s.grpcServerOptions...)
+	srv := grpc.NewServer(serverOpts...)
 	go func() {
 		sig := <-signals
 		switch sig {
