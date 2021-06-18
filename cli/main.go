@@ -10,7 +10,7 @@ import (
 
 	"github.com/ticker-es/broker-go/backends"
 
-	"github.com/ticker-es/broker-go/backends/base"
+	"github.com/ticker-es/broker-go/backends/eventstream"
 
 	. "github.com/mtrense/soil/config"
 	"github.com/mtrense/soil/logging"
@@ -66,7 +66,7 @@ func executeServer(cmd *cobra.Command, args []string) {
 	listen := viper.GetString("listen")
 	eventStoreFactory := backends.LookupEventStore(viper.GetString("event_store"))
 	sequenceStoreFactory := backends.LookupSequenceStore(viper.GetString("sequence_store"))
-	stream := base.NewEventStream(eventStoreFactory.CreateEventStore(), sequenceStoreFactory.CreateSequenceStore())
+	stream := eventstream.NewEventStream(eventStoreFactory.CreateEventStore(), sequenceStoreFactory.CreateSequenceStore())
 	cert, err := readServerCert()
 	if err != nil {
 		panic(err)

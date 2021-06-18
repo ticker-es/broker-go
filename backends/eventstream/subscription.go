@@ -1,4 +1,4 @@
-package base
+package eventstream
 
 import (
 	"context"

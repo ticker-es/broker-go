@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ticker-es/broker-go/backends/base"
+	"github.com/ticker-es/broker-go/backends/eventstream"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -17,7 +17,7 @@ import (
 var _ = Describe("memory/event_stream", func() {
 	It("handles a large amount of Events with delays", func() {
 		totalCount := 100
-		s := base.NewEventStream(NewMemoryEventStore(), NewMemorySequenceStore(), base.DefaultBufferSize(10))
+		s := eventstream.NewEventStream(NewMemoryEventStore(), NewMemorySequenceStore(), eventstream.DefaultBufferSize(10))
 		w := es.NewWrapper(s)
 		go func() {
 			for i := 0; i < totalCount; i++ {
@@ -39,7 +39,7 @@ var _ = Describe("memory/event_stream", func() {
 
 	It("handles a large amount of Events on slow Subscribers", func() {
 		totalCount := 100
-		s := base.NewEventStream(NewMemoryEventStore(), NewMemorySequenceStore(), base.DefaultBufferSize(10))
+		s := eventstream.NewEventStream(NewMemoryEventStore(), NewMemorySequenceStore(), eventstream.DefaultBufferSize(10))
 		w := es.NewWrapper(s)
 		ctx := context.Background()
 		var counter int
@@ -62,7 +62,7 @@ var _ = Describe("memory/event_stream", func() {
 
 	It("handles a large amount of Events on multiple slow Subscribers", func() {
 		totalCount := 100
-		s := base.NewEventStream(NewMemoryEventStore(), NewMemorySequenceStore(), base.DefaultBufferSize(10))
+		s := eventstream.NewEventStream(NewMemoryEventStore(), NewMemorySequenceStore(), eventstream.DefaultBufferSize(10))
 		w := es.NewWrapper(s)
 		go func() {
 			for i := 0; i < totalCount; i++ {
@@ -91,7 +91,7 @@ var _ = Describe("memory/event_stream", func() {
 
 	It("handles Events on really slow Subscribers", func() {
 		totalCount := 20
-		s := base.NewEventStream(NewMemoryEventStore(), NewMemorySequenceStore(), base.DefaultBufferSize(10))
+		s := eventstream.NewEventStream(NewMemoryEventStore(), NewMemorySequenceStore(), eventstream.DefaultBufferSize(10))
 		w := es.NewWrapper(s)
 		go func() {
 			for i := 0; i < totalCount; i++ {
