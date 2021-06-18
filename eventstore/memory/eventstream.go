@@ -2,7 +2,6 @@ package memory
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -10,7 +9,7 @@ import (
 )
 
 type EventStream struct {
-	events            []*es.Event
+	eventStore        es.EventStore
 	writeLock         sync.Mutex
 	sequenceStore     es.SequenceStore
 	subscriptions     map[string]*Subscription
@@ -19,8 +18,9 @@ type EventStream struct {
 
 type Option = func(s *EventStream)
 
-func NewMemoryEventStream(sequenceStore es.SequenceStore, opts ...Option) *EventStream {
+func NewMemoryEventStream(eventStore es.EventStore, sequenceStore es.SequenceStore, opts ...Option) *EventStream {
 	s := &EventStream{
+		eventStore:        eventStore,
 		defaultBufferSize: 100,
 		sequenceStore:     sequenceStore,
 		subscriptions:     make(map[string]*Subscription),
@@ -34,10 +34,10 @@ func NewMemoryEventStream(sequenceStore es.SequenceStore, opts ...Option) *Event
 func (s *EventStream) Emit(event *es.Event) (int64, error) {
 	s.writeLock.Lock()
 	defer s.writeLock.Unlock()
-	// Sequence starts at 1
-	seq := int64(len(s.events) + 1)
-	event.Sequence = seq
-	s.events = append(s.events, event)
+	seq, err := s.eventStore.Store(event)
+	if err != nil {
+		return seq, err
+	}
 	for _, sub := range s.subscriptions {
 		if sub.active {
 			sub.publishEvent(event)
@@ -47,26 +47,16 @@ func (s *EventStream) Emit(event *es.Event) (int64, error) {
 }
 
 func (s *EventStream) LastSequence() int64 {
-	return int64(len(s.events))
+	return s.eventStore.LastKnownSequence()
 }
 
 func (s *EventStream) Get(sequence int64) (*es.Event, error) {
-	return s.events[sequence-1], nil
+	return s.eventStore.Read(sequence)
 }
 
 func (s *EventStream) Stream(ctx context.Context, sel es.Selector, bracket es.Bracket, handler es.EventHandler) error {
 	bracket.Sanitize(s.LastSequence())
-	for _, event := range s.events[bracket.NextSequence-1 : bracket.LastSequence] {
-		if err := ctx.Err(); errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return nil
-		}
-		if sel.Matches(event) {
-			if err := handler(event); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return s.eventStore.ReadAll(ctx, sel, bracket, handler)
 }
 
 func (s *EventStream) Subscribe(ctx context.Context, persistentClientID string, sel es.Selector, handler es.EventHandler) (es.Subscription, error) {

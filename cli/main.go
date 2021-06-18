@@ -51,7 +51,7 @@ func main() {
 
 func executeServer(cmd *cobra.Command, args []string) {
 	listen := viper.GetString("listen")
-	stream := memory.NewMemoryEventStream(memory.NewMemorySequenceStore())
+	stream := memory.NewMemoryEventStream(memory.NewMemoryEventStore(), memory.NewMemorySequenceStore())
 	cert, err := readServerCert()
 	if err != nil {
 		panic(err)
