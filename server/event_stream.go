@@ -44,7 +44,8 @@ func (s *eventStreamServer) Stream(req *rpc.StreamRequest, stream rpc.EventStrea
 		NextSequence: req.Bracket.FirstSequence,
 		LastSequence: req.Bracket.LastSequence,
 	}
-	return s.server.streamBackend.Stream(stream.Context(), selector, bracket, func(e *es.Event) error {
+	ctx, _ := s.server.withGlobalStop(stream.Context())
+	return s.server.streamBackend.Stream(ctx, selector, bracket, func(e *es.Event) error {
 		ev := rpc.EventToProto(e)
 		return stream.Send(ev)
 	})
@@ -62,7 +63,8 @@ func (s *eventStreamServer) Subscribe(req *rpc.SubscriptionRequest, stream rpc.E
 		Aggregate: req.Selector.Aggregate,
 		Type:      req.Selector.Type,
 	}
-	sub, err := s.server.streamBackend.Subscribe(stream.Context(), persistentClientID, selector, func(e *es.Event) error {
+	ctx, _ := s.server.withGlobalStop(stream.Context())
+	sub, err := s.server.streamBackend.Subscribe(ctx, persistentClientID, selector, func(e *es.Event) error {
 		ev := rpc.EventToProto(e)
 		return stream.Send(ev)
 	})

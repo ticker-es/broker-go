@@ -33,6 +33,9 @@ type Server struct {
 	maintenanceServer *maintenanceServer
 	connectionCount   int32
 	startTime         time.Time
+	stopContext       context.Context
+	gracefulStop      func()
+	grpcServer        *grpc.Server
 }
 
 type Option = func(s *Server)
@@ -56,6 +59,7 @@ func NewServer(version string, backend base.EventStream, opts ...Option) *Server
 
 func (s *Server) Start() error {
 	s.startTime = time.Now()
+	s.stopContext, s.gracefulStop = context.WithCancel(context.Background())
 	signals := make(chan os.Signal)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, os.Kill)
 	listener, err := net.Listen("tcp", ":6677")
@@ -66,20 +70,25 @@ func (s *Server) Start() error {
 		grpc.StatsHandler(s),
 	}
 	serverOpts = append(serverOpts, s.grpcServerOptions...)
-	srv := grpc.NewServer(serverOpts...)
+	s.grpcServer = grpc.NewServer(serverOpts...)
 	go func() {
 		sig := <-signals
 		switch sig {
 		case os.Kill:
-			srv.Stop()
+			s.grpcServer.Stop()
 		case os.Interrupt, syscall.SIGTERM:
-			srv.GracefulStop()
+			s.GracefulStop()
 		}
 	}()
-	rpc.RegisterEventStreamServer(srv, s.streamServer)
-	rpc.RegisterMaintenanceServer(srv, s.maintenanceServer)
-	reflection.Register(srv)
-	return srv.Serve(listener)
+	rpc.RegisterEventStreamServer(s.grpcServer, s.streamServer)
+	rpc.RegisterMaintenanceServer(s.grpcServer, s.maintenanceServer)
+	reflection.Register(s.grpcServer)
+	return s.grpcServer.Serve(listener)
+}
+
+func (s *Server) GracefulStop() {
+	s.gracefulStop()
+	s.grpcServer.GracefulStop()
 }
 
 func (s *Server) TagRPC(ctx context.Context, i *stats.RPCTagInfo) context.Context {
@@ -128,4 +137,18 @@ func (s *Server) HandleConn(ctx context.Context, st stats.ConnStats) {
 		atomic.AddInt32(&s.connectionCount, -1)
 		l.Msg("Client disconnected")
 	}
+}
+
+func (s *Server) withGlobalStop(c context.Context) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(c)
+
+	go func() {
+		select {
+		case <-ctx.Done():
+		case <-s.stopContext.Done():
+			cancel()
+		}
+	}()
+
+	return ctx, cancel
 }
