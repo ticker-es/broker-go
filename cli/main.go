@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/ticker-es/broker-go/eventstore/base"
+
 	. "github.com/mtrense/soil/config"
 	"github.com/mtrense/soil/logging"
 	log "github.com/mtrense/soil/logging"
@@ -51,7 +53,7 @@ func main() {
 
 func executeServer(cmd *cobra.Command, args []string) {
 	listen := viper.GetString("listen")
-	stream := memory.NewMemoryEventStream(memory.NewMemoryEventStore(), memory.NewMemorySequenceStore())
+	stream := base.NewEventStream(memory.NewMemoryEventStore(), memory.NewMemorySequenceStore())
 	cert, err := readServerCert()
 	if err != nil {
 		panic(err)

@@ -1,4 +1,4 @@
-package memory
+package base
 
 import (
 	"context"
@@ -18,7 +18,7 @@ type EventStream struct {
 
 type Option = func(s *EventStream)
 
-func NewMemoryEventStream(eventStore es.EventStore, sequenceStore es.SequenceStore, opts ...Option) *EventStream {
+func NewEventStream(eventStore es.EventStore, sequenceStore es.SequenceStore, opts ...Option) *EventStream {
 	s := &EventStream{
 		eventStore:        eventStore,
 		defaultBufferSize: 100,
