@@ -3,8 +3,12 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
+
+	"github.com/ticker-es/broker-go/eventstore"
 
 	"github.com/ticker-es/broker-go/eventstore/base"
 
@@ -27,13 +31,21 @@ var (
 		FlagLogFile(),
 		SubCommand("server",
 			Short("Run the ticker server"),
+			// Server Flags
 			Flag("listen", Str(":6677"), Description("Address to listen for grpc connections"), Mandatory(), Persistent(), Env()),
-			Flag("database", Str("localhost:5432"), Description("Database server to connect to"), Mandatory(), Persistent(), Env()),
 			Flag("insecure", Bool(), Description("Run in insecure mode. Not recommended in production"), Persistent(), Env()),
 			Flag("tls-key", Str("tls/server.key"), Description("TLS key to use"), Persistent(), EnvName("tls_key")),
 			Flag("tls-cert", Str("tls/server.crt"), Description("TLS certificate to use"), Persistent(), EnvName("tls_cert")),
 			Flag("client-ca", Str("tls/ca.crt"), Description("CA to verify client certs against"), Persistent(), EnvName("client_ca")),
+			// Backend Storage Selection
+			Flag("event-store", Str("memory"), Description("Select which EventStore implementation to use"), Persistent(), EnvName("event_store")),
+			Flag("sequence-store", Str("memory"), Description("Select which SequenceStore implementation to use"), Persistent(), EnvName("sequence_store")),
+			eventstore.GetAllConfiguredFlags(),
 			Run(executeServer),
+		),
+		SubCommand("list-backends",
+			Short("List the available backends and their options"),
+			Run(executeListBackends),
 		),
 		Version(version, commit),
 		Completion(),
@@ -67,6 +79,19 @@ func executeServer(cmd *cobra.Command, args []string) {
 	if err := srv.Start(); err != nil {
 		panic(err)
 	}
+}
+
+func executeListBackends(cmd *cobra.Command, args []string) {
+	fmt.Println("EventStore Backends:")
+	for _, backend := range eventstore.EventStores() {
+		fmt.Printf(" - %s\n", strings.Join(backend.Names(), ", "))
+	}
+	fmt.Println()
+	fmt.Println("SequenceStore Backends:")
+	for _, backend := range eventstore.SequenceStores() {
+		fmt.Printf(" - %s\n", strings.Join(backend.Names(), ", "))
+	}
+
 }
 
 func readCACerts() *x509.CertPool {
