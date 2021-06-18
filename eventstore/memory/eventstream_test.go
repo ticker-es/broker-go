@@ -4,6 +4,8 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/ticker-es/broker-go/eventstore/base"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	es "github.com/ticker-es/client-go/eventstream/base"
@@ -11,21 +13,20 @@ import (
 
 var _ = Describe("memory/eventstream", func() {
 	es.EventStreamSampleGroup(func() es.EventStream {
-		return NewMemoryEventStream(NewMemorySequenceStore())
+		return base.NewEventStream(NewMemoryEventStore(), NewMemorySequenceStore())
 	})
 
 	It("Subscription is live when returned", func() {
-		w := es.NewWrapper(NewMemoryEventStream(NewMemorySequenceStore()))
+		w := es.NewWrapper(base.NewEventStream(NewMemoryEventStore(), NewMemorySequenceStore()))
 		Expect(len(w.Stream().Subscriptions())).To(Equal(0))
 		ctx := context.Background()
 		sub, _ := w.Stream().Subscribe(ctx, "test", es.Select(), func(e *es.Event) error { return nil })
 		Expect(len(w.Stream().Subscriptions())).To(Equal(1))
-		Expect(sub.(*Subscription).live).To(BeTrue())
+		Expect(sub.(*base.Subscription).IsLive()).To(BeTrue())
 	})
 
 	It("handles a large amount of fast Events", func() {
-		s := NewMemoryEventStream(NewMemorySequenceStore())
-		s.defaultBufferSize = 10
+		s := base.NewEventStream(NewMemoryEventStore(), NewMemorySequenceStore(), base.DefaultBufferSize(10))
 		w := es.NewWrapper(s)
 		for i := 0; i < 50; i++ {
 			agg := i % 8
@@ -47,8 +48,7 @@ var _ = Describe("memory/eventstream", func() {
 	})
 
 	It("Subscription properly handles selections", func() {
-		s := NewMemoryEventStream(NewMemorySequenceStore())
-		s.defaultBufferSize = 10
+		s := base.NewEventStream(NewMemoryEventStore(), NewMemorySequenceStore(), base.DefaultBufferSize(10))
 		w := es.NewWrapper(s)
 		for i := 0; i < 20; i++ {
 			agg := i % 8

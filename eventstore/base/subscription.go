@@ -47,6 +47,10 @@ func (s *Subscription) Acknowledge(sequence int64) error {
 	return s.stream.sequenceStore.Store(s.clientID, sequence)
 }
 
+func (s *Subscription) IsLive() bool {
+	return s.live
+}
+
 func (s *Subscription) publishEvent(event *es.Event) {
 	if s.live {
 		select {
