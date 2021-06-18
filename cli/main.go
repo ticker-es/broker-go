@@ -17,7 +17,6 @@ import (
 	log "github.com/mtrense/soil/logging"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/ticker-es/broker-go/eventstore/memory"
 	"github.com/ticker-es/broker-go/server"
 )
 
@@ -65,7 +64,9 @@ func main() {
 
 func executeServer(cmd *cobra.Command, args []string) {
 	listen := viper.GetString("listen")
-	stream := base.NewEventStream(memory.NewMemoryEventStore(), memory.NewMemorySequenceStore())
+	eventStoreFactory := eventstore.LookupEventStore(viper.GetString("event_store"))
+	sequenceStoreFactory := eventstore.LookupSequenceStore(viper.GetString("sequence_store"))
+	stream := base.NewEventStream(eventStoreFactory.CreateEventStore(), sequenceStoreFactory.CreateSequenceStore())
 	cert, err := readServerCert()
 	if err != nil {
 		panic(err)
