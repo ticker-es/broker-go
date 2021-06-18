@@ -38,8 +38,8 @@ var (
 			Flag("tls-cert", Str("tls/server.crt"), Description("TLS certificate to use"), Persistent(), EnvName("tls_cert")),
 			Flag("client-ca", Str("tls/ca.crt"), Description("CA to verify client certs against"), Persistent(), EnvName("client_ca")),
 			// Backend Storage Selection
-			Flag("event-store", Str("memory"), Description("Select which EventStore implementation to use"), Persistent(), EnvName("event_store")),
-			Flag("sequence-store", Str("memory"), Description("Select which SequenceStore implementation to use"), Persistent(), EnvName("sequence_store")),
+			Flag("event-store", Str("memory"), Abbr("e"), Description("Select which EventStore implementation to use"), Mandatory(), Persistent(), EnvName("event_store")),
+			Flag("sequence-store", Str("memory"), Abbr("s"), Description("Select which SequenceStore implementation to use"), Mandatory(), Persistent(), EnvName("sequence_store")),
 			eventstore.GetAllConfiguredFlags(),
 			Run(executeServer),
 		),
