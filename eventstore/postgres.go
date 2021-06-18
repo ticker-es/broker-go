@@ -1,7 +1,13 @@
 package eventstore
 
 import (
+	"context"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+
 	c "github.com/mtrense/soil/config"
+	"github.com/spf13/viper"
+	"github.com/ticker-es/broker-go/eventstore/postgres"
 	"github.com/ticker-es/client-go/eventstream/base"
 )
 
@@ -13,8 +19,13 @@ func (s *PostgresFactory) Names() []string {
 }
 
 func (s *PostgresFactory) CreateEventStore() base.EventStore {
-
-	return nil
+	url := viper.GetString("evt_postgres_url")
+	db, err := pgxpool.Connect(context.Background(), url)
+	//db, err := sqlx.Connect("pgx", url)
+	if err != nil {
+		panic(err)
+	}
+	return postgres.NewEventStore(db)
 }
 
 func (s *PostgresFactory) BuildEventStoreFlags() c.Applicant {
