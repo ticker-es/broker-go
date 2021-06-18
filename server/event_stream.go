@@ -29,7 +29,7 @@ func (s *eventStreamServer) Emit(ctx context.Context, event *rpc.Event) (*rpc.Ac
 		OccurredAt: occurredAt,
 		Payload:    payload,
 	}
-	seq, err := s.server.streamBackend.Store(&ev)
+	seq, err := s.server.streamBackend.Emit(&ev)
 	return &rpc.Ack{
 		Sequence: int64(seq),
 	}, err
