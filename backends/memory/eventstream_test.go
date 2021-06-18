@@ -4,7 +4,7 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/ticker-es/broker-go/eventstore/base"
+	"github.com/ticker-es/broker-go/backends/base"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

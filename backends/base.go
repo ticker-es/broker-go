@@ -1,4 +1,4 @@
-package eventstore
+package backends
 
 import (
 	"github.com/mtrense/soil/config"

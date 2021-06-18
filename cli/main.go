@@ -8,9 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ticker-es/broker-go/eventstore"
+	"github.com/ticker-es/broker-go/backends"
 
-	"github.com/ticker-es/broker-go/eventstore/base"
+	"github.com/ticker-es/broker-go/backends/base"
 
 	. "github.com/mtrense/soil/config"
 	"github.com/mtrense/soil/logging"
@@ -39,7 +39,7 @@ var (
 			// Backend Storage Selection
 			Flag("event-store", Str("memory"), Abbr("e"), Description("Select which EventStore implementation to use"), Mandatory(), Persistent(), EnvName("event_store")),
 			Flag("sequence-store", Str("memory"), Abbr("s"), Description("Select which SequenceStore implementation to use"), Mandatory(), Persistent(), EnvName("sequence_store")),
-			eventstore.GetAllConfiguredFlags(),
+			backends.GetAllConfiguredFlags(),
 			Run(executeServer),
 		),
 		SubCommand("list-backends",
@@ -64,8 +64,8 @@ func main() {
 
 func executeServer(cmd *cobra.Command, args []string) {
 	listen := viper.GetString("listen")
-	eventStoreFactory := eventstore.LookupEventStore(viper.GetString("event_store"))
-	sequenceStoreFactory := eventstore.LookupSequenceStore(viper.GetString("sequence_store"))
+	eventStoreFactory := backends.LookupEventStore(viper.GetString("event_store"))
+	sequenceStoreFactory := backends.LookupSequenceStore(viper.GetString("sequence_store"))
 	stream := base.NewEventStream(eventStoreFactory.CreateEventStore(), sequenceStoreFactory.CreateSequenceStore())
 	cert, err := readServerCert()
 	if err != nil {
@@ -84,12 +84,12 @@ func executeServer(cmd *cobra.Command, args []string) {
 
 func executeListBackends(cmd *cobra.Command, args []string) {
 	fmt.Println("EventStore Backends:")
-	for _, backend := range eventstore.EventStores() {
+	for _, backend := range backends.EventStores() {
 		fmt.Printf(" - %s\n", strings.Join(backend.Names(), ", "))
 	}
 	fmt.Println()
 	fmt.Println("SequenceStore Backends:")
-	for _, backend := range eventstore.SequenceStores() {
+	for _, backend := range backends.SequenceStores() {
 		fmt.Printf(" - %s\n", strings.Join(backend.Names(), ", "))
 	}
 

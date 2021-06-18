@@ -1,8 +1,8 @@
-package eventstore
+package backends
 
 import (
 	c "github.com/mtrense/soil/config"
-	"github.com/ticker-es/broker-go/eventstore/memory"
+	"github.com/ticker-es/broker-go/backends/memory"
 	"github.com/ticker-es/client-go/eventstream/base"
 )
 

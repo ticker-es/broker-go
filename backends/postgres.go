@@ -1,4 +1,4 @@
-package eventstore
+package backends
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 
 	c "github.com/mtrense/soil/config"
 	"github.com/spf13/viper"
-	"github.com/ticker-es/broker-go/eventstore/postgres"
+	"github.com/ticker-es/broker-go/backends/postgres"
 	"github.com/ticker-es/client-go/eventstream/base"
 )
 
