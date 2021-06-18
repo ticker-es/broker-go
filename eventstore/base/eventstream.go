@@ -38,6 +38,7 @@ func (s *EventStream) Emit(event *es.Event) (int64, error) {
 	if err != nil {
 		return seq, err
 	}
+	event.Sequence = seq
 	for _, sub := range s.subscriptions {
 		if sub.active {
 			sub.publishEvent(event)
