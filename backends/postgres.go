@@ -20,7 +20,11 @@ func (s *PostgresFactory) Names() []string {
 
 func (s *PostgresFactory) CreateEventStore() base.EventStore {
 	url := viper.GetString("evt_postgres_url")
-	db, err := pgxpool.Connect(context.Background(), url)
+	cfg, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		panic(err)
+	}
+	db, err := pgxpool.ConnectConfig(context.Background(), cfg)
 	//db, err := sqlx.Connect("pgx", url)
 	if err != nil {
 		panic(err)
