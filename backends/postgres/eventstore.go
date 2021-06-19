@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -66,8 +68,23 @@ func (s *EventStore) Read(sequence int64) (*es.Event, error) {
 }
 
 func (s *EventStore) ReadAll(ctx context.Context, sel es.Selector, bracket es.Bracket, handler es.EventHandler) error {
+	var arguments []interface{}
+	var predicates []string
+	for pos, agg := range sel.Aggregate {
+		if agg != "" {
+			arguments = append(arguments, agg)
+			predicates = append(predicates, fmt.Sprintf("aggregate[%d] = $%d", pos, len(arguments)))
+		}
+	}
+	if sel.Type != "" {
+		arguments = append(arguments, sel.Type)
+		predicates = append(predicates, fmt.Sprintf("type = $%d", len(arguments)))
+	}
+	arguments = append(arguments, bracket.NextSequence, bracket.LastSequence)
+	predicates = append(predicates, fmt.Sprintf("sequence BETWEEN $%d AND $%d", len(arguments)-1, len(arguments)))
+	query := "SELECT sequence, aggregate, type, occurred_at, payload FROM event_streams WHERE " + strings.Join(predicates, " OR ") + " ORDER BY sequence"
 	return s.db.AcquireFunc(ctx, func(c *pgxpool.Conn) error {
-		rows, err := c.Query(ctx, "SELECT sequence, aggregate, type, occurred_at, payload FROM event_streams ORDER BY sequence")
+		rows, err := c.Query(ctx, query, arguments...)
 		if err != nil {
 			return err
 		}
