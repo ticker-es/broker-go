@@ -11,8 +11,7 @@ import (
 	"github.com/ticker-es/client-go/eventstream/base"
 )
 
-type PostgresFactory struct {
-}
+type PostgresFactory struct{}
 
 func (s *PostgresFactory) Names() []string {
 	return []string{"postgres", "pg"}

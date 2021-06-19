@@ -6,8 +6,7 @@ import (
 	"github.com/ticker-es/client-go/eventstream/base"
 )
 
-type MemoryFactory struct {
-}
+type MemoryFactory struct{}
 
 func (s *MemoryFactory) Names() []string {
 	return []string{"memory", "mem"}
