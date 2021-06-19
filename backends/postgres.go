@@ -43,7 +43,17 @@ func (s *PostgresFactory) BuildEventStoreFlags() c.Applicant {
 }
 
 func (s *PostgresFactory) CreateSequenceStore() base.SequenceStore {
-	return nil
+	url := viper.GetString("seq_postgres_url")
+	cfg, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		panic(err)
+	}
+	db, err := pgxpool.ConnectConfig(context.Background(), cfg)
+	//db, err := sqlx.Connect("pgx", url)
+	if err != nil {
+		panic(err)
+	}
+	return postgres.NewSequenceStore(db)
 }
 
 func (s *PostgresFactory) BuildSequenceStoreFlags() c.Applicant {
