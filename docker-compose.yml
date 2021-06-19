@@ -8,3 +8,7 @@ services:
     environment:
       POSTGRES_USER: broker-go
       POSTGRES_PASSWORD: s3cr3t
+  redis:
+    image: redis:alpine
+    ports:
+      - "127.0.0.1:0:6379"
