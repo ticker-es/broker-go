@@ -1,4 +1,17 @@
-# broker-go
+# Ticker Broker
+
+Implements an EventStream broker with multiple backends for storing Events and Subscriptions. 
+
+## Usage
+
+Full help available with
+
+`ticker-broker help`
+
+Start a broker with `postgres` backend for storing Events but using `redis` for storing subscriptions:
+
+`ticker-broker ticker-broker server --event-store postgres --evt-postgres-url=<PG_URL> --sequence-store redis 
+--seq-redis-url=<REDIS_URL>`
 
 ## Development
 
