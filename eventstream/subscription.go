@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mtrense/soil/logging"
+
 	es "github.com/ticker-es/client-go/eventstream/base"
 )
 
@@ -80,12 +82,14 @@ func (s *Subscription) handleSubscription(ctx context.Context, handler es.EventH
 			if nextSequence <= lastKnownSequence {
 				err := s.stream.Stream(ctx, s.activeSelector, es.Range(nextSequence, lastKnownSequence), func(e *es.Event) error {
 					if s.activeSelector.Matches(e) {
+						logging.L().Debug().Bool("replay", true).Str("clientId", s.clientID).Int64("sequence", e.Sequence).Msg("Handling Event")
 						if err := handler(e); err != nil {
 							s.lastError = err
 							s.stream.unsubscribe(s)
 							return err
 						}
 					}
+					logging.L().Debug().Bool("replay", true).Str("clientId", s.clientID).Int64("sequence", e.Sequence).Msg("Acknowledging")
 					if err := s.Acknowledge(e.Sequence); err != nil {
 						s.lastError = err
 						s.stream.unsubscribe(s)
@@ -113,12 +117,14 @@ func (s *Subscription) handleSubscription(ctx context.Context, handler es.EventH
 						}
 					} else {
 						if s.activeSelector.Matches(event) {
+							logging.L().Debug().Bool("replay", false).Str("clientId", s.clientID).Int64("sequence", event.Sequence).Msg("Handling Event")
 							if err := handler(event); err != nil {
 								s.lastError = err
 								s.stream.unsubscribe(s)
 								return
 							}
 						}
+						logging.L().Debug().Bool("replay", false).Str("clientId", s.clientID).Int64("sequence", event.Sequence).Msg("Acknowledging")
 						if err := s.Acknowledge(event.Sequence); err != nil {
 							s.lastError = err
 							s.stream.unsubscribe(s)
