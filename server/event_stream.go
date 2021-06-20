@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	"github.com/golang/protobuf/ptypes"
 
 	es "github.com/ticker-es/client-go/eventstream/base"
@@ -16,7 +18,7 @@ type eventStreamServer struct {
 	server *Server
 }
 
-func (s *eventStreamServer) Emit(ctx context.Context, event *rpc.Event) (*rpc.Ack, error) {
+func (s *eventStreamServer) Emit(ctx context.Context, event *rpc.Event) (*rpc.Published, error) {
 	occurredAt, err := ptypes.Timestamp(event.OccurredAt)
 	if err != nil {
 		return nil, err
@@ -30,7 +32,7 @@ func (s *eventStreamServer) Emit(ctx context.Context, event *rpc.Event) (*rpc.Ac
 		Payload:    payload,
 	}
 	seq, err := s.server.streamBackend.Emit(&ev)
-	return &rpc.Ack{
+	return &rpc.Published{
 		Sequence: seq,
 	}, err
 }
@@ -72,4 +74,9 @@ func (s *eventStreamServer) Subscribe(req *rpc.SubscriptionRequest, stream rpc.E
 		return err
 	}
 	return sub.Wait()
+}
+
+func (s *eventStreamServer) Acknowledge(context.Context, *rpc.Ack) (*emptypb.Empty, error) {
+
+	return &emptypb.Empty{}, nil
 }
