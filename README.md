@@ -10,7 +10,7 @@ Full help available with
 
 Start a broker with `postgres` backend for storing Events but using `redis` for storing subscriptions:
 
-`ticker-broker ticker-broker server --event-store postgres --evt-postgres-url=<PG_URL> --sequence-store redis 
+`ticker-broker server --event-store postgres --evt-postgres-url=<PG_URL> --sequence-store redis 
 --seq-redis-url=<REDIS_URL>`
 
 ## Development
