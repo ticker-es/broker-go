@@ -59,6 +59,12 @@ release: archive
 
 ### TEST ####################################################################
 
+mock-certs:
+	certstrap --depot-path tls init -o ticker -ou infosec -c DE --st HESSEN --passphrase '' --cn ticker-ca
+	certstrap --depot-path tls request-cert --passphrase '' -o ticker -c DE --st HESSEN --ou infosec --cn ticker-broker
+	certstrap --depot-path tls sign --passphrase '' --CA ticker-ca --csr tls/ticker-broker.csr 127.0.0.1
+	certstrap --depot-path tls request-cert --passphrase '' -o ticker -c DE --st HESSEN --ou infosec --cn ticker-client
+
 test-broker-go:
 	ginkgo
 test-broker-go-watch:
