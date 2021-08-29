@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/go-redis/redis/v8 v8.10.0
 	github.com/golang/protobuf v1.5.2
-	github.com/jackc/pgx/v4 v4.11.0
+	github.com/jackc/pgx/v4 v4.13.0
 	github.com/lib/pq v1.10.2
 	github.com/mtrense/soil v0.4.0
 	github.com/onsi/ginkgo v1.16.4
