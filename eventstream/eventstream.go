@@ -60,6 +60,10 @@ func (s *EventStream) Stream(ctx context.Context, sel es.Selector, bracket es.Br
 	return s.eventStore.ReadAll(ctx, sel, bracket, handler)
 }
 
+func (s *EventStream) Listen(ctx context.Context, sel es.Selector, handler es.EventHandler) error {
+	return nil
+}
+
 func (s *EventStream) Subscribe(ctx context.Context, persistentClientID string, sel es.Selector, handler es.EventHandler) (es.Subscription, error) {
 	sub := s.getOrCreateSubscription(persistentClientID, sel)
 	err := sub.handleSubscription(ctx, handler)

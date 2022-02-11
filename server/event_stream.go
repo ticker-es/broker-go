@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/golang/protobuf/ptypes"
@@ -51,6 +50,10 @@ func (s *eventStreamServer) Stream(req *rpc.StreamRequest, stream rpc.EventStrea
 		ev := rpc.EventToProto(e)
 		return stream.Send(ev)
 	})
+}
+
+func (s *eventStreamServer) Listen(req *rpc.ListenRequest, stream rpc.EventStream_ListenServer) error {
+	return nil
 }
 
 func (s *eventStreamServer) Subscribe(req *rpc.SubscriptionRequest, stream rpc.EventStream_SubscribeServer) error {
