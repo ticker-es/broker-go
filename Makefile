@@ -66,7 +66,7 @@ mock-certs:
 	certstrap --depot-path tls request-cert --passphrase '' -o ticker -c DE --st HESSEN --ou infosec --cn ticker-client
 
 test-broker-go:
-	ginkgo
+	ginkgo -r
 test-broker-go-watch:
 	ginkgo watch
 test: test-broker-go
