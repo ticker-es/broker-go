@@ -98,6 +98,10 @@ func (s *EventStream) unsubscribe(sub *Subscription) {
 	close(sub.buffer)
 }
 
+func (s *EventStream) Acknowledge(persistentClientID string, sequence int64) error {
+	return s.sequenceStore.Store(persistentClientID, sequence)
+}
+
 func (s *EventStream) Subscriptions() []es.Subscription {
 	result := make([]es.Subscription, 0, len(s.subscriptions))
 	for _, sub := range s.subscriptions {

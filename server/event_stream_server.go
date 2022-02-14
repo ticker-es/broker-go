@@ -3,9 +3,8 @@ package server
 import (
 	"context"
 	"errors"
-	"google.golang.org/protobuf/types/known/emptypb"
-
 	"github.com/golang/protobuf/ptypes"
+	"io"
 
 	es "github.com/ticker-es/client-go/eventstream/base"
 
@@ -79,7 +78,17 @@ func (s *eventStreamServer) Subscribe(req *rpc.SubscriptionRequest, stream rpc.E
 	return sub.Wait()
 }
 
-func (s *eventStreamServer) Acknowledge(context.Context, *rpc.Ack) (*emptypb.Empty, error) {
-
-	return &emptypb.Empty{}, nil
+func (s *eventStreamServer) Acknowledge(ackServer rpc.EventStream_AcknowledgeServer) error {
+	for {
+		if ack, err := ackServer.Recv(); err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		} else {
+			if err := s.server.streamBackend.Acknowledge(ack.PersistentClientId, ack.Sequence); err != nil {
+				return err
+			}
+		}
+	}
 }
