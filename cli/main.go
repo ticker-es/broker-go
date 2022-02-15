@@ -2,9 +2,8 @@ package main
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"github.com/ticker-es/client-go/config"
 	"os"
 	"strings"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/ticker-es/broker-go/backends"
 
 	. "github.com/mtrense/soil/config"
-	"github.com/mtrense/soil/logging"
 	log "github.com/mtrense/soil/logging"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -74,7 +72,7 @@ func executeServer(cmd *cobra.Command, args []string) {
 	srv := server.NewServer(version, stream,
 		server.ListenAddress(listen),
 		//server.Credentials(credentials.NewTLS(tlsConfig)),
-		server.MutualTLS(cert, readCACerts()),
+		server.MutualTLS(cert, config.ReadCACerts(viper.GetStringSlice("client_ca")...)),
 	)
 	log.L().Info().Str("listen-addr", listen).Int("pid", os.Getpid()).Msg("Server starting")
 	if err := srv.Start(); err != nil {
@@ -93,20 +91,6 @@ func executeListBackends(cmd *cobra.Command, args []string) {
 		fmt.Printf(" - %s\n", strings.Join(backend.Names(), ", "))
 	}
 
-}
-
-func readCACerts() *x509.CertPool {
-	caCerts := x509.NewCertPool()
-	for _, caCertFile := range viper.GetStringSlice("client_ca") {
-		if caCertData, err := ioutil.ReadFile(caCertFile); err == nil {
-			if !caCerts.AppendCertsFromPEM(caCertData) {
-				logging.L().Error().Str("filename", caCertFile).Msg("Could not parse CA Certificate from PEM")
-			}
-		} else {
-			logging.L().Err(err).Msg("Could not read CA Certificate")
-		}
-	}
-	return caCerts
 }
 
 func readServerCert() (tls.Certificate, error) {
