@@ -89,12 +89,6 @@ func (s *Subscription) handleSubscription(ctx context.Context, handler es.EventH
 							return err
 						}
 					}
-					log.L().Debug().Bool("replay", true).Str("clientId", s.clientID).Int64("sequence", e.Sequence).Msg("Acknowledging")
-					if err := s.Acknowledge(e.Sequence); err != nil {
-						s.lastError = err
-						s.stream.unsubscribe(s)
-						return err
-					}
 					nextSequence = e.Sequence + 1
 					return nil
 				})
@@ -124,13 +118,6 @@ func (s *Subscription) handleSubscription(ctx context.Context, handler es.EventH
 								s.stream.unsubscribe(s)
 								return
 							}
-						}
-						log.L().Debug().Bool("replay", false).Str("clientId", s.clientID).Int64("sequence", event.Sequence).Msg("Acknowledging")
-						if err := s.Acknowledge(event.Sequence); err != nil {
-							s.lastError = err
-							log.L().Warn().Err(err).Msg("Error occurred on Ack. Unsubscribing.")
-							s.stream.unsubscribe(s)
-							return
 						}
 						nextSequence = event.Sequence + 1
 					}
