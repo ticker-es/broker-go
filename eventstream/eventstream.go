@@ -2,6 +2,7 @@ package eventstream
 
 import (
 	"context"
+	log "github.com/mtrense/soil/logging"
 	"sync"
 	"time"
 
@@ -66,6 +67,7 @@ func (s *EventStream) Listen(ctx context.Context, sel es.Selector, handler es.Ev
 
 func (s *EventStream) Subscribe(ctx context.Context, persistentClientID string, sel es.Selector, handler es.EventHandler) (es.Subscription, error) {
 	sub := s.getOrCreateSubscription(persistentClientID, sel)
+	log.L().Debug().Str("persistentClientID", persistentClientID).Msg("Subscribe")
 	err := sub.handleSubscription(ctx, handler)
 	return sub, err
 }
