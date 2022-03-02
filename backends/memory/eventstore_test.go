@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
@@ -9,56 +10,63 @@ import (
 	es "github.com/ticker-es/client-go/eventstream/base"
 )
 
-var _ = Describe("memory/eventstore", func() {
-	Context("general", func() {
-		It("Stores an event", func() {
-			event := es.Event{}
-			memoryEventStore := NewMemoryEventStore()
+type testHistory struct{ EventStore }
 
-			Expect(memoryEventStore.LastKnownSequence()).To(Equal(int64(0)))
+func newHistory() *testHistory {
+	return &testHistory{
+		EventStore: EventStore{
+			events:         []*es.Event{},
+			deadAggregates: make(map[string]bool),
+		},
+	}
+}
 
-			sequence, err := memoryEventStore.Store(&event)
-
-			Expect(err).To(BeNil())
-			Expect(sequence).To(Equal(int64(1)))
-			Expect(event.Sequence).To(Equal(sequence))
-			Expect(memoryEventStore.LastKnownSequence()).To(Equal(int64(1)))
-		})
+func (h *testHistory) event(aggregate []string, tp string, payload map[string]interface{}) *testHistory {
+	h.Store(&es.Event{
+		Aggregate: aggregate,
+		Type:      tp,
+		Payload:   payload,
 	})
+	return h
+}
 
-	Context("tombstone", func() {
-		aggregate1 := []string{"de", "customer", "1"}
-		aggregate2 := []string{"de", "customer", "2"}
+func (h testHistory) store() EventStore {
+	return h.EventStore
+}
 
-		When("Event is stored", func() {
-			store := EventStore{
-				events:         make([]*es.Event, 0),
-				deadAggregates: make(map[string]bool),
-			}
+var _ = Describe("memory/eventstore", func() {
+	aggregate1 := []string{"de", "customer", "1"}
+	aggregate2 := []string{"de", "customer", "2"}
 
-			type record struct {
-				Aggregate []string
-				Type      string
-				Payload   map[string]interface{}
-			}
+	Context(".Store()", func() {
+		Context("general event", func() {
+			It("Stores an event", func() {
+				event := es.Event{}
+				memoryEventStore := NewMemoryEventStore()
 
-			history := []record{
-				{aggregate1, "registered", map[string]interface{}{}},
-				{aggregate1, "updated", map[string]interface{}{}},
-				{aggregate2, "registered", map[string]interface{}{}},
-				{aggregate2, "updated", map[string]interface{}{}},
-			}
+				Expect(memoryEventStore.LastKnownSequence()).To(Equal(int64(0)))
 
-			for _, r := range history {
-				store.Store(&es.Event{
-					Aggregate: r.Aggregate, Type: r.Type, Payload: r.Payload,
-				})
-			}
+				sequence, err := memoryEventStore.Store(&event)
 
+				Expect(err).To(BeNil())
+				Expect(sequence).To(Equal(int64(1)))
+				Expect(event.Sequence).To(Equal(sequence))
+				Expect(memoryEventStore.LastKnownSequence()).To(Equal(int64(1)))
+			})
+		})
+
+		Context("tombstone event", func() {
 			It("Marks aggregate as dead and anonymizes related events", func() {
+				store := newHistory().
+					event(aggregate1, "registered", map[string]interface{}{}).
+					event(aggregate1, "updated", map[string]interface{}{}).
+					event(aggregate2, "registered", map[string]interface{}{}).
+					event(aggregate2, "updated", map[string]interface{}{}).
+					store()
+
 				Expect(store.deadAggregates).To(HaveLen(0))
 
-				_, err := store.Store(&es.Event{Aggregate: aggregate2, Type: "$tombstone", Payload: map[string]interface{}{}})
+				_, err := store.Store(&es.Event{Aggregate: aggregate2, Type: TombstoneEventType, Payload: map[string]interface{}{}})
 				Expect(err).To(BeNil())
 
 				Expect(store.deadAggregates).To(HaveKey(strings.Join(aggregate2, "/")))
@@ -68,7 +76,7 @@ var _ = Describe("memory/eventstore", func() {
 					if stringifyAggregate(event.Aggregate) == stringifyAggregate(aggregate1) {
 						Expect(event.Payload).NotTo(BeNil())
 					} else {
-						if event.Type == "$tombstone" {
+						if event.Type == TombstoneEventType {
 							Expect(event.Payload).NotTo(BeNil())
 						} else {
 							Expect(event.Payload).To(BeNil())
@@ -79,7 +87,37 @@ var _ = Describe("memory/eventstore", func() {
 				sequence, err := store.Store(&es.Event{Aggregate: aggregate2, Type: "updated"})
 				Expect(err).To(Equal(ErrAttemptToStoreIntoDeadAggregate))
 				Expect(sequence).To(BeZero())
+
 			})
 		})
 	})
+
+	Context(".ReadAll()", func() {
+		It("returns events for live aggregates and tombstone events for dead aggregates", func() {
+			store := newHistory().
+				event(aggregate1, "registered", map[string]interface{}{}).
+				event(aggregate1, "updated", map[string]interface{}{}).
+				event(aggregate2, "registered", map[string]interface{}{}).
+				event(aggregate2, "updated", map[string]interface{}{}).
+				event(aggregate2, TombstoneEventType, map[string]interface{}{}).
+				store()
+
+			events := map[string]int{}
+			tombstones := map[string]int{}
+
+			store.ReadAll(context.Background(), es.Selector{Aggregate: []string{}}, es.Range(1, store.LastKnownSequence()), func(event *es.Event) error {
+				aggregate := stringifyAggregate(event.Aggregate)
+				events[aggregate] += 1
+				if event.Type == TombstoneEventType {
+					tombstones[aggregate] += 1
+				}
+				return nil
+			})
+
+			Expect(events[stringifyAggregate(aggregate1)]).To(Equal(2))
+			Expect(events[stringifyAggregate(aggregate2)]).To(Equal(1))
+			Expect(tombstones[stringifyAggregate(aggregate2)]).To(Equal(1))
+		})
+	})
+
 })

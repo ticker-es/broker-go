@@ -60,8 +60,18 @@ func (s *EventStore) ReadAll(ctx context.Context, sel es.Selector, bracket es.Br
 		if err := ctx.Err(); errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return nil
 		}
+
 		if sel.Matches(event) {
-			if err := handler(event); err != nil {
+			var err error
+			if s.IsAggredateDead(event.Aggregate) {
+				if event.Type == TombstoneEventType {
+					err = handler(event)
+				}
+			} else {
+				err = handler(event)
+			}
+
+			if err != nil {
 				return err
 			}
 		}
@@ -78,12 +88,11 @@ func (s *EventStore) markAggregareAsDead(event *es.Event) {
 }
 
 func (s *EventStore) anonymizeAggregate(aggregate []string) {
-	s.ReadAll(context.Background(), es.Selector{Aggregate: aggregate}, es.Range(1, s.LastKnownSequence()), func(event *es.Event) error {
-		if event.Type != TombstoneEventType {
+	for _, event := range s.events {
+		if (stringifyAggregate(event.Aggregate) == stringifyAggregate(aggregate)) && (event.Type != TombstoneEventType) {
 			event.Payload = nil
 		}
-		return nil
-	})
+	}
 }
 
 func stringifyAggregate(aggregate []string) string {
