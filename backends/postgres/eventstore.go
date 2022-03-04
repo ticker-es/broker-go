@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -11,6 +12,15 @@ import (
 	"github.com/lib/pq"
 
 	es "github.com/ticker-es/client-go/eventstream/base"
+)
+
+const (
+	StateAlive = iota
+	StateDead
+)
+
+var (
+	ErrAggregateIsDead = errors.New("aggregate is dead")
 )
 
 type EventStore struct {
@@ -24,8 +34,66 @@ func NewEventStore(db *pgxpool.Pool) es.EventStore {
 }
 
 func (s *EventStore) Store(event *es.Event) (int64, error) {
+	if state, err := s.getAggregateState(event.Aggregate); err != nil {
+		return 0, err
+	} else {
+		if state == StateDead {
+			return 0, ErrAggregateIsDead
+		}
+	}
+
+	switch event.Type {
+	case "$tombstone":
+		err := s.storeAggregateState(event.Aggregate, StateDead)
+		if err != nil {
+			return 0, err
+		}
+		return s.storeEvent(event)
+	default:
+		return s.storeEvent(event)
+	}
+}
+
+func (s *EventStore) storeAggregateState(aggregate []string, state int) error {
+	ctx := context.Background()
+
+	err := s.db.AcquireFunc(ctx, func(c *pgxpool.Conn) error {
+		_, err := c.Exec(ctx, "INSERT INTO aggregate_states (aggregate, state) VALUES ($1, $2)",
+			aggregate, state,
+		)
+		return err
+	})
+
+	return err
+}
+
+func (s *EventStore) getAggregateState(aggregate []string) (int, error) {
+	ctx := context.Background()
+
+	var state int
+	err := s.db.AcquireFunc(ctx, func(c *pgxpool.Conn) error {
+		row := c.QueryRow(ctx, "SELECT state FROM aggregate_states WHERE aggregate = $1", aggregate)
+
+		err := row.Scan(&state)
+
+		if err == nil {
+			return nil
+			// Dirty hack. I haven't found yet a way to handle pg errors correctly
+		} else if err.Error() == "no rows in result set" {
+			state = StateAlive
+			return nil
+		} else {
+			return err
+		}
+	})
+
+	return state, err
+}
+
+func (s *EventStore) storeEvent(event *es.Event) (int64, error) {
 	var sequence int64
 	ctx := context.Background()
+
 	err := s.db.AcquireFunc(ctx, func(c *pgxpool.Conn) error {
 		row := c.QueryRow(ctx, "INSERT INTO event_streams (aggregate, type, occurred_at, revision, payload) VALUES ($1, $2, $3, $4, $5) RETURNING sequence",
 			event.Aggregate,
