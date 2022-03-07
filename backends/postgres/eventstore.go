@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -11,6 +12,19 @@ import (
 	"github.com/lib/pq"
 
 	es "github.com/ticker-es/client-go/eventstream/base"
+)
+
+const (
+	StateAlive = iota
+	StateDead
+)
+
+const (
+	TombstoneEventType = "$tombstone"
+)
+
+var (
+	ErrAggregateIsDead = errors.New("aggregate is dead")
 )
 
 type EventStore struct {
@@ -24,8 +38,86 @@ func NewEventStore(db *pgxpool.Pool) es.EventStore {
 }
 
 func (s *EventStore) Store(event *es.Event) (int64, error) {
+	if state, err := s.getAggregateState(event.Aggregate); err != nil {
+		return 0, err
+	} else {
+		if state == StateDead {
+			return 0, ErrAggregateIsDead
+		}
+	}
+
+	switch event.Type {
+	case TombstoneEventType:
+		err := s.storeAggregateState(event.Aggregate, StateDead)
+		if err != nil {
+			return 0, err
+		}
+		sequence, err := s.storeEvent(event)
+
+		if err != nil {
+			return 0, err
+		}
+
+		err = s.anonymizeAggregate(event.Aggregate)
+		return sequence, err
+	default:
+		return s.storeEvent(event)
+	}
+}
+
+func (s *EventStore) storeAggregateState(aggregate []string, state int) error {
+	ctx := context.Background()
+
+	err := s.db.AcquireFunc(ctx, func(c *pgxpool.Conn) error {
+		_, err := c.Exec(ctx, "INSERT INTO aggregate_states (aggregate, state) VALUES ($1, $2)",
+			aggregate, state,
+		)
+		return err
+	})
+
+	return err
+}
+
+func (s *EventStore) anonymizeAggregate(aggregate []string) error {
+	ctx := context.Background()
+
+	err := s.db.AcquireFunc(ctx, func(c *pgxpool.Conn) error {
+		_, err := c.Exec(ctx, "UPDATE event_streams SET payload = NULL WHERE aggregate = $1 AND type <> '"+TombstoneEventType+"'",
+			aggregate,
+		)
+		return err
+	})
+
+	return err
+}
+
+func (s *EventStore) getAggregateState(aggregate []string) (int, error) {
+	ctx := context.Background()
+
+	var state int
+	err := s.db.AcquireFunc(ctx, func(c *pgxpool.Conn) error {
+		row := c.QueryRow(ctx, "SELECT state FROM aggregate_states WHERE aggregate = $1", aggregate)
+
+		err := row.Scan(&state)
+
+		if err == nil {
+			return nil
+			// Dirty hack. I haven't found yet a way to handle pg errors correctly
+		} else if err.Error() == "no rows in result set" {
+			state = StateAlive
+			return nil
+		} else {
+			return err
+		}
+	})
+
+	return state, err
+}
+
+func (s *EventStore) storeEvent(event *es.Event) (int64, error) {
 	var sequence int64
 	ctx := context.Background()
+
 	err := s.db.AcquireFunc(ctx, func(c *pgxpool.Conn) error {
 		row := c.QueryRow(ctx, "INSERT INTO event_streams (aggregate, type, occurred_at, revision, payload) VALUES ($1, $2, $3, $4, $5) RETURNING sequence",
 			event.Aggregate,
@@ -73,16 +165,28 @@ func (s *EventStore) ReadAll(ctx context.Context, sel es.Selector, bracket es.Br
 	for pos, agg := range sel.Aggregate {
 		if agg != "" {
 			arguments = append(arguments, agg)
-			predicates = append(predicates, fmt.Sprintf("aggregate[%d] = $%d", pos, len(arguments)))
+			predicates = append(predicates, fmt.Sprintf("e.aggregate[%d] = $%d", pos, len(arguments)))
 		}
 	}
 	if sel.Type != "" {
 		arguments = append(arguments, sel.Type)
-		predicates = append(predicates, fmt.Sprintf("type = $%d", len(arguments)))
+		predicates = append(predicates, fmt.Sprintf("e.type = $%d", len(arguments)))
 	}
 	arguments = append(arguments, bracket.NextSequence, bracket.LastSequence)
-	predicates = append(predicates, fmt.Sprintf("sequence BETWEEN $%d AND $%d", len(arguments)-1, len(arguments)))
-	query := "SELECT sequence, aggregate, type, occurred_at, payload FROM event_streams WHERE " + strings.Join(predicates, " OR ") + " ORDER BY sequence"
+	predicates = append(predicates, fmt.Sprintf("e.sequence BETWEEN $%d AND $%d", len(arguments)-1, len(arguments)))
+
+	query := `
+	SELECT e.sequence, e.aggregate, e.type, e.occurred_at, e.payload
+	FROM event_streams e
+	LEFT JOIN aggregate_states a ON (a.aggregate = e.aggregate)
+	WHERE
+	`
+	query = query + "(" + strings.Join(predicates, " OR ") + ") "
+
+	query = query + "AND ((coalesce(a.state,0) = " + fmt.Sprintf("%v", StateDead) + " AND e.type = '" + TombstoneEventType + "') OR (coalesce(a.state,0) != " + fmt.Sprintf("%v", StateDead) + ")) "
+
+	query = query + "ORDER BY e.sequence "
+
 	return s.db.AcquireFunc(ctx, func(c *pgxpool.Conn) error {
 		rows, err := c.Query(ctx, query, arguments...)
 		if err != nil {

@@ -13,6 +13,13 @@ CREATE TABLE IF NOT EXISTS event_streams (
 
 CREATE INDEX IF NOT EXISTS event_streams_aggregate_idx ON event_streams USING GIN(aggregate);
 
+CREATE TABLE IF NOT EXISTS aggregate_states (
+    aggregate VARCHAR(50)[] NOT NULL,
+    state int
+);
+
+CREATE INDEX IF NOT EXISTS aggregate_states_aggregate_idx ON aggregate_states USING GIN(aggregate);
+
 CREATE TABLE IF NOT EXISTS subscribers (
     id VARCHAR(100) PRIMARY KEY,
     last_acknowledged_sequence INTEGER DEFAULT 0,
