@@ -141,16 +141,28 @@ func (s *EventStore) ReadAll(ctx context.Context, sel es.Selector, bracket es.Br
 	for pos, agg := range sel.Aggregate {
 		if agg != "" {
 			arguments = append(arguments, agg)
-			predicates = append(predicates, fmt.Sprintf("aggregate[%d] = $%d", pos, len(arguments)))
+			predicates = append(predicates, fmt.Sprintf("e.aggregate[%d] = $%d", pos, len(arguments)))
 		}
 	}
 	if sel.Type != "" {
 		arguments = append(arguments, sel.Type)
-		predicates = append(predicates, fmt.Sprintf("type = $%d", len(arguments)))
+		predicates = append(predicates, fmt.Sprintf("e.type = $%d", len(arguments)))
 	}
 	arguments = append(arguments, bracket.NextSequence, bracket.LastSequence)
-	predicates = append(predicates, fmt.Sprintf("sequence BETWEEN $%d AND $%d", len(arguments)-1, len(arguments)))
-	query := "SELECT sequence, aggregate, type, occurred_at, payload FROM event_streams WHERE " + strings.Join(predicates, " OR ") + " ORDER BY sequence"
+	predicates = append(predicates, fmt.Sprintf("e.sequence BETWEEN $%d AND $%d", len(arguments)-1, len(arguments)))
+
+	query := `
+	SELECT e.sequence, e.aggregate, e.type, e.occurred_at, e.payload
+	FROM event_streams e
+	LEFT JOIN aggregate_states a ON (a.aggregate = e.aggregate)
+	WHERE
+	`
+	query = query + "(" + strings.Join(predicates, " OR ") + ") "
+
+	query = query + "AND ((coalesce(a.state,0) = " + fmt.Sprintf("%v", StateDead) + " AND e.type = '$tombstone') OR (coalesce(a.state,0) != " + fmt.Sprintf("%v", StateDead) + ")) "
+
+	query = query + "ORDER BY e.sequence "
+
 	return s.db.AcquireFunc(ctx, func(c *pgxpool.Conn) error {
 		rows, err := c.Query(ctx, query, arguments...)
 		if err != nil {
