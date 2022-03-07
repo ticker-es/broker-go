@@ -19,6 +19,10 @@ const (
 	StateDead
 )
 
+const (
+	TombstoneEventType = "$tombstone"
+)
+
 var (
 	ErrAggregateIsDead = errors.New("aggregate is dead")
 )
@@ -43,12 +47,19 @@ func (s *EventStore) Store(event *es.Event) (int64, error) {
 	}
 
 	switch event.Type {
-	case "$tombstone":
+	case TombstoneEventType:
 		err := s.storeAggregateState(event.Aggregate, StateDead)
 		if err != nil {
 			return 0, err
 		}
-		return s.storeEvent(event)
+		sequence, err := s.storeEvent(event)
+
+		if err != nil {
+			return 0, err
+		}
+
+		err = s.anonymizeAggregate(event.Aggregate)
+		return sequence, err
 	default:
 		return s.storeEvent(event)
 	}
@@ -60,6 +71,19 @@ func (s *EventStore) storeAggregateState(aggregate []string, state int) error {
 	err := s.db.AcquireFunc(ctx, func(c *pgxpool.Conn) error {
 		_, err := c.Exec(ctx, "INSERT INTO aggregate_states (aggregate, state) VALUES ($1, $2)",
 			aggregate, state,
+		)
+		return err
+	})
+
+	return err
+}
+
+func (s *EventStore) anonymizeAggregate(aggregate []string) error {
+	ctx := context.Background()
+
+	err := s.db.AcquireFunc(ctx, func(c *pgxpool.Conn) error {
+		_, err := c.Exec(ctx, "UPDATE event_streams SET payload = NULL WHERE aggregate = $1 AND type <> '"+TombstoneEventType+"'",
+			aggregate,
 		)
 		return err
 	})
@@ -159,7 +183,7 @@ func (s *EventStore) ReadAll(ctx context.Context, sel es.Selector, bracket es.Br
 	`
 	query = query + "(" + strings.Join(predicates, " OR ") + ") "
 
-	query = query + "AND ((coalesce(a.state,0) = " + fmt.Sprintf("%v", StateDead) + " AND e.type = '$tombstone') OR (coalesce(a.state,0) != " + fmt.Sprintf("%v", StateDead) + ")) "
+	query = query + "AND ((coalesce(a.state,0) = " + fmt.Sprintf("%v", StateDead) + " AND e.type = '" + TombstoneEventType + "') OR (coalesce(a.state,0) != " + fmt.Sprintf("%v", StateDead) + ")) "
 
 	query = query + "ORDER BY e.sequence "
 
