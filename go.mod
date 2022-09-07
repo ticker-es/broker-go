@@ -6,7 +6,7 @@ require (
 	github.com/go-redis/redis/v8 v8.11.3
 	github.com/golang/protobuf v1.5.2
 	github.com/jackc/pgx/v4 v4.13.0
-	github.com/lib/pq v1.10.2
+	github.com/lib/pq v1.10.7
 	github.com/mtrense/soil v0.5.0
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.16.0
